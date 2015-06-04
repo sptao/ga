@@ -3,11 +3,11 @@
 #include <math.h>
 #include <omp.h>
 
-#define POP_SIZE 128
-#define CROSS_PROB 0.6
+#define POP_SIZE 256
+#define CROSS_PROB 0.8
 #define MATING_PROB 0.8
 #define MUTAT_PROB 0.1
-#define TERM_GEN 10240
+#define TERM_GEN 512
 #define PI 3.1415
 #define DELTA 0.1
 #define NUM 10000
@@ -28,20 +28,24 @@ void qsortFit(int low, int high)
 	Fit tmp;
 	
 	if (low < high) {
-		i = low + 1;
+		i = low;
 		j = high;
 		while (i < j) {
-			while (j > low && fit[j].val < fit[low].val) {j--;}
-			while (i < high && fit[i].val > fit[low].val) {i++;}
-			if (i != j) {
+			while (j > i && fit[j].val < fit[i].val) {j--;}
+			if (i < j) {
 				tmp = fit[j];
 				fit[j] = fit[i];
 				fit[i] = tmp;
 			}
+			i++;
+			while (i < j && fit[i].val > fit[j].val) {i++;}
+			if (i < j) {
+				tmp = fit[j];
+				fit[j] = fit[i];
+				fit[i] = tmp;
+			}
+			j--;
 		}
-		tmp = fit[i];
-		fit[i] = fit[low];
-		fit[low] = tmp;
 		qsortFit(low, i - 1);
 		qsortFit(i + 1, high);
 	}
@@ -77,22 +81,6 @@ void calcFitness(int n)
 	}
 
 	//sort fit according to fit[i].v
-/*
-	Fit tmp;
-	for (i = 0; i < amount; i++) {
-		m = i;
-		for (j = i + 1; j < amount; j++) {
-			if (fit[j].val > fit[m].val) {
-				m = j;
-			}
-		}
-		if (m != i) {
-			tmp = fit[i];
-			fit[i] = fit[m];
-			fit[m] = tmp;
-		}
-	}
-*/
 	qsortFit(0, amount - 1);
 
 	//select chromosome according to fit[i].v
@@ -153,6 +141,7 @@ void mutation(int n)
 	int i;
 
 	//mutation probability = 0.1
+#pragma omp unroll parallel for
 	for (i = POP_SIZE; i < amount; i++) {
 		if ((rand() % NUM) / (double)NUM < MUTAT_PROB) {
 			if (rand() % 2 == 0) {
@@ -168,18 +157,20 @@ void mutation(int n)
 int main()
 {
 	int i;
+	FILE *fp = fopen("f.txt", "wb+");
 
 	srand(time(NULL));
 	initPop();
 
 	for (i = 0; i < TERM_GEN; i++) {
-		//printf("start generation %d\n", i);
 		calcFitness(i); 
 		crossOver();
 		mutation(i);
+		fprintf(fp, "%d %.6lf\n", i, fit[0].val);
 	}
 
 	printf("best result: x = %.6lf, f = %.6lf\n", chromo[0], fit[0].val);
+	fclose(fp);
 
 	return 0;
 }
