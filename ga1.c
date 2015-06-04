@@ -18,7 +18,6 @@ typedef struct {
 } Fit;
 
 int amount;
-int child;
 double chromo[POP_SIZE * 4];
 Fit fit[POP_SIZE * 4];
 
@@ -166,10 +165,10 @@ int main()
 		calcFitness(i); 
 		crossOver();
 		mutation(i);
-		fprintf(fp, "%d %.6lf\n", i, fit[0].val);
+		fprintf(fp, "%d %.10lf\n", i, fit[0].val);
 	}
 
-	printf("best result: x = %.6lf, f = %.6lf\n", chromo[0], fit[0].val);
+	printf("best result: x = %.10lf, f = %.10lf\n", chromo[0], fit[0].val);
 	fclose(fp);
 
 	return 0;
