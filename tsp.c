@@ -360,6 +360,7 @@ int main()
 		speMutat(&mtx, &p, MAX_POP, 0.5);
 	}
 
+	fclose(fp);
 	freeMtx(&mtx);
 	return 0;
 }
