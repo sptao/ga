@@ -35,15 +35,15 @@ void qsortFit(int low, int high)
 				tmp = fit[j];
 				fit[j] = fit[i];
 				fit[i] = tmp;
+				i++;
 			}
-			i++;
 			while (i < j && fit[i].val > fit[j].val) {i++;}
 			if (i < j) {
 				tmp = fit[j];
 				fit[j] = fit[i];
 				fit[i] = tmp;
+				j--;
 			}
-			j--;
 		}
 		qsortFit(low, i - 1);
 		qsortFit(i + 1, high);

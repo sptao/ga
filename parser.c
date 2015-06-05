@@ -35,7 +35,7 @@ void allocMtx(const char *filename, Mtx *mtx)
 		fclose(fp);
 		return;
 	}
-	fread(buf, 1, len, fp);
+	len = fread(buf, 1, len, fp);
 	fclose(fp);
 
 	//need to do file format check
@@ -43,12 +43,19 @@ void allocMtx(const char *filename, Mtx *mtx)
 	ptr = strstr(buf, strDim);
 	if (ptr == NULL) {
 		free(buf);
+		printf("incorrect format\n");
 		return;
 	}
 	while (!(*ptr >= '0' && *ptr <= '9')) {ptr++;}	//find the dimension
 	sscanf(ptr, "%d", &mtx->dim);
-	while (*ptr >= '0' && *ptr <= '9') {ptr++;}		//jump the dimension
-	while (!(*ptr >= '0' && *ptr <= '9')) {ptr++;}	//find the data section
+	ptr = strstr(ptr, strSec);						//go to line: NODE_COORD_SECTION
+	if (ptr == NULL) {
+		free(buf);
+		printf("incorrect format\n");
+		return;
+	}
+	while (*ptr != '\n') {ptr++;}	
+	ptr++;			//go to the data line
 	x = (double *)malloc(sizeof(double) * mtx->dim);
 	y = (double *)malloc(sizeof(double) * mtx->dim);
 	if (x == NULL || y == NULL) {
@@ -86,7 +93,7 @@ void allocMtx(const char *filename, Mtx *mtx)
 	for (i = 0; i < mtx->dim; i++) {
 		mtx->m[i] = mtx->m[0] + i * mtx->dim;
 		for (j = 0; j < i; j++) {
-			mtx->m[i][j] = pow(x[i] - x[j], 2) + pow(y[i] - y[j], 2);
+			mtx->m[i][j] = sqrt(pow(x[i] - x[j], 2) + pow(y[i] - y[j], 2));
 		}
 		mtx->m[i][i] = 0;
 	}
