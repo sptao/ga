@@ -2,11 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <omp.h>
 #include "tsp.h"
 #include "parser.h"
 
 #define MAX_DIM 200
-#define MAX_POP 512
+#define MAX_POP 1024
 #define TERM_NUM 20000
 #define BIG_NUM 10000
 
@@ -79,6 +80,22 @@ void fitSort(Indiv v[], int low, int high)
 	}
 }
 
+int indivEqual(const Indiv *i1, const Indiv *i2, int dim)
+{
+	int i;
+	int e;
+
+	e = 1;
+	for (i = 0; i < dim; i++) {
+		if (i1->c[i] != i2->c[i]) {
+			e = 0;
+			break;
+		}
+	}
+
+	return e;
+}
+
 double getFitness(const Mtx *m, int c[])
 {
 	int i, j;
@@ -90,7 +107,7 @@ double getFitness(const Mtx *m, int c[])
 	}
 	fit += m->m[c[m->dim - 1]][c[0]];
 
-	return (1.0 / sqrt(fit));
+	return (1.0 / fit);
 }
 
 void initPopu(const Mtx *m, Popu *p, int popSize)
@@ -112,6 +129,7 @@ void speSelect(const Mtx *m, Popu *p, int maxPopSize)
 	double b;
 
 	//calculate children's fitness
+#pragma omp unroll parallel for
 	for (i = maxPopSize; i < p->amount; i++) {
 		p->v[i].fit = getFitness(m, p->v[i].c);
 	}
@@ -166,7 +184,7 @@ void solveConflict(const Indiv *m, const Indiv *d, Indiv *child, int dim, int a,
 	}
 }
 
-void genChildren(const Indiv *m, const Indiv *d, Indiv *c1, Indiv *c2, int dim)
+void genChild(const Indiv *m, const Indiv *d, Indiv *c, int dim)
 {
 	int a, b, t;
 	int i, j;
@@ -183,21 +201,36 @@ void genChildren(const Indiv *m, const Indiv *d, Indiv *c1, Indiv *c2, int dim)
 	}
 
 	for (i = 0; i < a; i++) {
-		c1->c[i] = m->c[i];
-		c2->c[i] = d->c[i];
+		c->c[i] = m->c[i];
 	}
 	for (; i <= b; i++) {
-		c1->c[i] = d->c[i];
-		c2->c[i] = m->c[i];
+		c->c[i] = d->c[i];
 	}
 	for (; i < dim; i++) {
-		c1->c[i] = m->c[i];
-		c2->c[i] = d->c[i];
+		c->c[i] = m->c[i];
 	}
 
 	//solve conflict
-	solveConflict(m, d, c1, dim, a, b);
-	solveConflict(d, m, c2, dim, a, b);
+	solveConflict(m, d, c, dim, a, b);
+}
+
+void genChild1(const Indiv *m, const Indiv *d, Indiv *c, int dim)
+{
+	int a;
+	int i, j;
+	int mark[MAX_DIM];
+
+	a = rand() % dim;
+	memset(mark, 0, sizeof(mark));
+	for (i = 0; i < a; i++) {
+		c->c[i] = d->c[i]; 
+		mark[d->c[i]] = 1;
+	}
+	for (j = 0; j < dim; j++) {
+		if (mark[m->c[j]] != 1) {
+			c->c[i++] = m->c[j];
+		}
+	}
 }
 
 void crossOver(const Mtx *m, Popu *p, double crossProb, double matingProb)
@@ -225,7 +258,7 @@ void crossOver(const Mtx *m, Popu *p, double crossProb, double matingProb)
 	}
 
 	//select mom and dad
-	childNum = 0;
+	j = p->amount;
 	for (i = 0; i < p->amount * crossProb; i++) {
 		//select mom
 		p1 = s[rand() % BIG_NUM];
@@ -237,13 +270,20 @@ void crossOver(const Mtx *m, Popu *p, double crossProb, double matingProb)
 		}
 		//gen children
 		if ((rand() % BIG_NUM / (double)BIG_NUM) < matingProb) {
-			genChildren(&p->v[p1], &p->v[p2], &p->v[p->amount + childNum], \
-							&p->v[p->amount + childNum + 1], m->dim);
-			childNum += 2;
+			genChild1(&p->v[p1], &p->v[p2], &p->v[j], m->dim);
+			if (indivEqual(&p->v[p1], &p->v[j], m->dim) == 0 && \
+							indivEqual(&p->v[p2], &p->v[j], m->dim) == 0) {
+				j++;
+			}
+			genChild1(&p->v[p2], &p->v[p1], &p->v[j], m->dim);
+			if (indivEqual(&p->v[p1], &p->v[j], m->dim) == 0 && \
+							indivEqual(&p->v[p2], &p->v[j], m->dim) == 0) {
+				j++;
+			}
 		}
 	}
 	
-	p->amount += childNum;
+	p->amount = j;
 }
 
 void speMutat(const Mtx *m, Popu *p, int maxPopSize, double mutatProb)
@@ -253,12 +293,17 @@ void speMutat(const Mtx *m, Popu *p, int maxPopSize, double mutatProb)
 
 	for (i = maxPopSize; i < p->amount; i++) {
 		if ((rand() % BIG_NUM) / (double)BIG_NUM < mutatProb) {
-			r1 = rand() % m->dim;
-			r2 = rand() % m->dim;
-			if (r1 != r2) {
-				t = p->v[i].c[r1];
-				p->v[i].c[r1] = p->v[i].c[r2];
-				p->v[i].c[r2] = t;
+			j = rand() % 4;
+			while (j >= 0) {
+				r1 = rand() % m->dim;
+				r2 = rand() % m->dim;
+				if (r1 != r2) {
+					t = p->v[i].c[r1];
+					p->v[i].c[r1] = p->v[i].c[r2];
+					p->v[i].c[r2] = t;
+				}
+
+				j--;
 			}
 		}
 	}
@@ -267,9 +312,18 @@ void speMutat(const Mtx *m, Popu *p, int maxPopSize, double mutatProb)
 void showCurInfo(const Mtx *m, Popu *p, int gen)
 {
 	int i;
+	int cnt;
 
 	printf("Generation %d:\n", gen);
-	printf("max fitness: %.10lf, min distance: %.6lf\n", p->v[0].fit, 1.0 / pow(p->v[0].fit, 2));
+	printf("max fitness: %.10lf, min distance: %.6lf\n", p->v[0].fit, 1.0 / p->v[0].fit);
+
+	cnt = 1;
+	for (i = 1; i < p->amount; i++) {
+		if (indivEqual(&p->v[i], &p->v[i - 1], m->dim) != 1) {
+			cnt++;
+		}
+	}
+	printf("different indiv count: %d\n", cnt);
 	printf("tour:\n");
 	for (i = 0; i < m->dim; i++) {
 		printf("%4d", p->v[0].c[i]);
@@ -286,7 +340,7 @@ int main()
 	Popu p;
 	int i;
 
-	allocMtx("att48.tsp", &mtx);
+	allocMtx("ch130.tsp", &mtx);
 	if (mtx.m == NULL) {
 		printf("alloc matrix error\n");
 		return 1;
@@ -294,14 +348,16 @@ int main()
 
 	srand(time(NULL));
 
+	FILE *fp = fopen("dist.txt", "wb+");
 	initPopu(&mtx, &p, MAX_POP);
 	for (i = 0; i < TERM_NUM; i++) {
 		speSelect(&mtx, &p, MAX_POP);
+		fprintf(fp, "%d %.6lf\n", i, 1.0 / p.v[0].fit);
 		if ((i + 1) % 100 == 0) {
 			showCurInfo(&mtx, &p, i);
 		}
-		crossOver(&mtx, &p, 0.9, 0.9);
-		speMutat(&mtx, &p, MAX_POP, 0.2);
+		crossOver(&mtx, &p, 0.8, 0.9);
+		speMutat(&mtx, &p, MAX_POP, 0.5);
 	}
 
 	freeMtx(&mtx);
