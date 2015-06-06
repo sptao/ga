@@ -6,9 +6,9 @@
 #include "tsp.h"
 #include "parser.h"
 
-#define MAX_DIM 200
-#define MAX_POP 1024
-#define TERM_NUM 20000
+#define MAX_DIM 500
+#define MAX_POP 512
+#define TERM_NUM 120000
 #define BIG_NUM 10000
 
 typedef struct {
@@ -114,6 +114,7 @@ void initPopu(const Mtx *m, Popu *p, int popSize)
 {
 	int i;
 
+#pragma omp parallel for
 	for (i = 0; i < popSize; i++) {
 		randperm(p->v[i].c, 0, m->dim - 1);
 		p->v[i].fit = getFitness(m, p->v[i].c);
@@ -129,7 +130,7 @@ void speSelect(const Mtx *m, Popu *p, int maxPopSize)
 	double b;
 
 	//calculate children's fitness
-#pragma omp unroll parallel for
+//#pragma omp parallel for
 	for (i = maxPopSize; i < p->amount; i++) {
 		p->v[i].fit = getFitness(m, p->v[i].c);
 	}
@@ -309,6 +310,21 @@ void speMutat(const Mtx *m, Popu *p, int maxPopSize, double mutatProb)
 	}
 }
 
+void speMutat1(const Mtx *m, Popu *p, int maxPopSize, double mutatProb)
+{
+	int i, j;
+	int r1, r2, t;
+
+	for (i = maxPopSize; i < p->amount; i++) {
+		if ((rand() % BIG_NUM) / (double)BIG_NUM < mutatProb) {
+			r1 = rand() % (m->dim - 1) ;
+			t = p->v[i].c[r1];
+			p->v[i].c[r1] = p->v[i].c[r1 + 1];
+			p->v[i].c[r1 + 1] = t;
+		}
+	}
+}
+
 void showCurInfo(const Mtx *m, Popu *p, int gen)
 {
 	int i;
@@ -340,7 +356,7 @@ int main()
 	Popu p;
 	int i;
 
-	allocMtx("ch130.tsp", &mtx);
+	allocMtx("rd400.tsp", &mtx);
 	if (mtx.m == NULL) {
 		printf("alloc matrix error\n");
 		return 1;
@@ -356,8 +372,9 @@ int main()
 		if ((i + 1) % 100 == 0) {
 			showCurInfo(&mtx, &p, i);
 		}
-		crossOver(&mtx, &p, 0.8, 0.9);
-		speMutat(&mtx, &p, MAX_POP, 0.5);
+		crossOver(&mtx, &p, 0.9, 0.9);
+		//speMutat1(&mtx, &p, MAX_POP, 0.5);
+		speMutat(&mtx, &p, MAX_POP, 0.8);
 	}
 
 	fclose(fp);
