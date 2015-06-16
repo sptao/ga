@@ -9,40 +9,45 @@ const char *strDim = "DIMENSION";
 const char *strE2d = "EUC_2D";
 const char *strSec = "NODE_COORD_SECTION";
 
-void allocMtx(const char *filename, Mtx *mtx)
+void readFile(const char *filename, char *buf, int bufLen)
 {
-	if (mtx == NULL) {
-		return;
-	}
-
-	mtx->m = NULL;
 	FILE *fp = fopen(filename, "rb");
+	int len;
+
 	if (fp == NULL) {
 		printf("open file error\n");
-		return;
+		exit(1);
 	}
-	
-	int len;
-	char *buf, *ptr;
-	double *x, *y;
-	int i, j;
 
 	fseek(fp, 0, SEEK_END);
 	len = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
-	buf = (char *)malloc(sizeof(char) * len);
-	if (buf == NULL) {
+	if (buf == NULL || bufLen < len) {
+		printf("buffer too small\n");
 		fclose(fp);
-		return;
+		exit(1);
 	}
 	len = fread(buf, 1, len, fp);
+	buf[len] = '\0';
 	fclose(fp);
+}
+
+void allocMtx(const char *buf, Mtx *mtx)
+{
+	if (mtx == NULL || buf == NULL) {
+		printf("input parameter error\n");
+		exit(1);
+	}
+	mtx->m = NULL;
+	
+	char *ptr;
+	double *x, *y;
+	int i, j;
 
 	//need to do file format check
 	
 	ptr = strstr(buf, strDim);
 	if (ptr == NULL) {
-		free(buf);
 		printf("incorrect format\n");
 		return;
 	}
@@ -50,7 +55,6 @@ void allocMtx(const char *filename, Mtx *mtx)
 	sscanf(ptr, "%d", &mtx->dim);
 	ptr = strstr(ptr, strSec);						//go to line: NODE_COORD_SECTION
 	if (ptr == NULL) {
-		free(buf);
 		printf("incorrect format\n");
 		return;
 	}
@@ -66,7 +70,6 @@ void allocMtx(const char *filename, Mtx *mtx)
 		if (!y) {
 			free(x);
 		}
-		free(buf);
 		return;
 	}
 	for (i = 0; i < mtx->dim; i++) {
@@ -78,14 +81,12 @@ void allocMtx(const char *filename, Mtx *mtx)
 	mtx->m = (double **)malloc(sizeof(double *) * mtx->dim);
 	if (mtx->m == NULL) {
 		printf("alloc memory error\n");
-		free(buf);
 		return;
 	}
 	mtx->m[0] = (double *)malloc(sizeof(double) * mtx->dim * mtx->dim);
 	if (mtx->m[0] == NULL) {
 		printf("alloc memory error\n");
 		free(mtx->m);
-		free(buf);
 		mtx->m = NULL;
 		return;
 	}
@@ -105,7 +106,6 @@ void allocMtx(const char *filename, Mtx *mtx)
 
 	free(x);
 	free(y);
-	free(buf);
 	return;
 }
 

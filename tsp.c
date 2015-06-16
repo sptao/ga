@@ -6,10 +6,12 @@
 #include "tsp.h"
 #include "parser.h"
 
-#define MAX_DIM 500
-#define MAX_POP 512
-#define TERM_NUM 120000
+#define MAX_DIM 300
+#define MAX_POP 256
+#define TERM_NUM 1200000
 #define BIG_NUM 10000
+#define POP_NUM 3
+#define MAX_FILE_LEN 4096
 
 typedef struct {
 	int c[MAX_DIM];
@@ -234,7 +236,58 @@ void genChild1(const Indiv *m, const Indiv *d, Indiv *c, int dim)
 	}
 }
 
-void crossOver(const Mtx *m, Popu *p, double crossProb, double matingProb)
+void exterCrossOver(const Mtx *m, Popu *p1, Popu *p2, double crossProb, double matingProb)
+{
+	int i, j, r;
+	static int s1[BIG_NUM * 2], s2[BIG_NUM * 2];
+	double total1, total2;
+	int a1, a2, b1, b2, childNum;
+	int m1, m2;
+	int e1, e2;
+
+	total1 = 0;
+	total2 = 0;
+	for (i = 0; i < MAX_POP; i++) {
+		total1 += p1->v[i].fit;
+		total2 += p2->v[i].fit;
+	}
+
+	//calculate select prob
+	a1 = 0;
+	a2 = 0;
+	for (i = 0; i < MAX_POP; i++) {
+		b1 = p1->v[i].fit / total1 * (double)BIG_NUM + a1;
+		for (j = a1; j < b1; j++) {
+			s1[j] = i;
+		}
+		a1 = b1;
+		b2 = p2->v[i].fit / total2 * (double)BIG_NUM + a2;
+		for (j = a2; j < b2; j++) {
+			s2[j] = i;
+		}
+		a2 = b2;
+	}
+
+	//select mom and dad
+	j = p1->amount;
+	for (i = 0; i < MAX_POP * crossProb; i++) {
+		//select mom
+		m1 = s1[rand() % BIG_NUM];
+		//select dad
+		m2 = s2[rand() % BIG_NUM];
+		//gen children
+		if ((rand() % BIG_NUM / (double)BIG_NUM) < matingProb) {
+			genChild1(&p1->v[m1], &p2->v[m2], &p1->v[j], m->dim);
+			if (indivEqual(&p1->v[m1], &p1->v[j], m->dim) == 0) {
+				j++;
+			}
+		}
+	}
+	
+	p1->amount = j;
+}
+
+void interCrossOver(const Mtx *m, Popu *p, double crossProb, double matingProb)
 {
 	int i, j, r;
 	static int s[BIG_NUM * 2];
@@ -325,12 +378,12 @@ void speMutat1(const Mtx *m, Popu *p, int maxPopSize, double mutatProb)
 	}
 }
 
-void showCurInfo(const Mtx *m, Popu *p, int gen)
+void showCurStatus(const Mtx *m, Popu *p, int gen, int pnum)
 {
 	int i;
 	int cnt;
 
-	printf("Generation %d:\n", gen);
+	printf("pnum: %d, Generation %d:\n", pnum, gen);
 	printf("max fitness: %.10lf, min distance: %.6lf\n", p->v[0].fit, 1.0 / p->v[0].fit);
 
 	cnt = 1;
@@ -340,6 +393,7 @@ void showCurInfo(const Mtx *m, Popu *p, int gen)
 		}
 	}
 	printf("different indiv count: %d\n", cnt);
+	/*
 	printf("tour:\n");
 	for (i = 0; i < m->dim; i++) {
 		printf("%4d", p->v[0].c[i]);
@@ -347,37 +401,58 @@ void showCurInfo(const Mtx *m, Popu *p, int gen)
 			printf("\n");
 		}
 	}
+	*/
 	printf("\n");
+}
+
+void genAlg(const Mtx *mtx)
+{
+	Popu p[POP_NUM];
+	int i, j, k;
+	double h;
+
+	for (i = 0; i < POP_NUM; i++) {
+		initPopu(mtx, &p[i], MAX_POP);
+	}
+	h = 0.000001;
+	for (i = 0; i < TERM_NUM; i++) {
+#pragma omp parallel for
+		for (j = 0; j < POP_NUM; j++) {
+			speSelect(mtx, &p[j], MAX_POP);
+			interCrossOver(mtx, &p[j], 0.9, 0.9);
+			speMutat(mtx, &p[j], MAX_POP, 0.3);
+		}
+		if ((i + 1) % 2000 == 0) {
+			for (j = 0; j < POP_NUM; j++) {
+				exterCrossOver(mtx, &p[j], &p[(j + 1) % POP_NUM], 0.9, 0.9);
+				showCurStatus(mtx, &p[j], i, j);
+			}
+			if (fabs(h - p[0].v[0].fit) / h < 0.01) {
+				initPopu(mtx, &p[0], MAX_POP);
+			}
+			else {
+				h = p[0].v[0].fit;
+			}
+		}
+	}
 }
 
 int main()
 { 
 	Mtx mtx;
-	Popu p;
 	int i;
+	Indiv opt;
+	char buffer[MAX_FILE_LEN];
 
-	allocMtx("rd400.tsp", &mtx);
+	readFile("a280.tsp", buffer, MAX_FILE_LEN);
+	allocMtx(buffer, &mtx);
 	if (mtx.m == NULL) {
 		printf("alloc matrix error\n");
 		return 1;
 	}
-
 	srand(time(NULL));
+	genAlg(&mtx);
 
-	FILE *fp = fopen("dist.txt", "wb+");
-	initPopu(&mtx, &p, MAX_POP);
-	for (i = 0; i < TERM_NUM; i++) {
-		speSelect(&mtx, &p, MAX_POP);
-		fprintf(fp, "%d %.6lf\n", i, 1.0 / p.v[0].fit);
-		if ((i + 1) % 100 == 0) {
-			showCurInfo(&mtx, &p, i);
-		}
-		crossOver(&mtx, &p, 0.9, 0.9);
-		//speMutat1(&mtx, &p, MAX_POP, 0.5);
-		speMutat(&mtx, &p, MAX_POP, 0.8);
-	}
-
-	fclose(fp);
 	freeMtx(&mtx);
 	return 0;
 }

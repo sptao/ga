@@ -3,7 +3,8 @@
 
 #include "tsp.h"
 
-void allocMtx(const char *filename, Mtx *mtx);
+void readFile(const char *filename, char *buf, int bufLen);
+void allocMtx(const char *buf, Mtx *mtx);
 void freeMtx(Mtx *mtx);
 
 #endif
