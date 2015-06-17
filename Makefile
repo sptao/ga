@@ -1,16 +1,19 @@
 #Makefile for tsp solving by genetic algorithm
 
 CC = gcc
+MPICC = mpicc
 DEBUG = -g
 OPT = 
 CFLAGS = $(OPT) -I./ $(DEBUG)
 LFLAGS = -lm
-TARGET = tsp
 
-all = $(TARGET)
+all: tsp ptsp
 
-$(TARGET): tsp.o parser.o
+tsp: tsp.o parser.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
+
+ptsp: ptsp.o parser.o
+	$(MPICC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
 tsp.o: tsp.c
 	$(CC) $(CFLAGS) -c $^ -o $@ $(LFLAGS)
