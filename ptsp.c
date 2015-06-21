@@ -23,7 +23,7 @@ typedef struct {
 	int amount;
 } Popu;
 
-void randperm(int c[], int a, int b)
+void randperm(chromoType c[], int a, int b)
 {
 	int mark[MAX_DIM];
 	int i, j, cnt, r;
@@ -51,38 +51,7 @@ void randperm(int c[], int a, int b)
 	}
 }
 
-void fitSort(Indiv v[], int low, int high)	
-{
-	int i, j;
-	Indiv tmp;
-
-	if (low < high) {
-		i = low;
-		j = high;
-		memcpy(&tmp, &v[i], sizeof(Indiv));
-		while (i < j) {
-			while (i < j && v[j].fit < tmp.fit) {
-				j--;
-			}
-			if (i < j) {
-				memcpy(&v[i], &v[j], sizeof(Indiv));
-				i++;
-			}
-			while (i < j && v[i].fit > tmp.fit) {
-				i++;
-			}
-			if (i < j) {
-				memcpy(&v[j], &v[i], sizeof(Indiv));
-				j--;
-			}
-		}
-		memcpy(&v[i], &tmp, sizeof(Indiv));
-		fitSort(v, low, i - 1);
-		fitSort(v, i + 1, high);
-	}
-}
-
-int indivEqual(const int c1[], const int c2[], int dim)
+int indivEqual(const chromoType c1[], const chromoType c2[], int dim)
 {
 	int i;
 	int e;
@@ -98,7 +67,7 @@ int indivEqual(const int c1[], const int c2[], int dim)
 	return e;
 }
 
-double getFitness(const Mtx *m, int c[])
+double getFitness(const Mtx *m, chromoType c[])
 {
 	int i, j;
 	double fit;
@@ -150,7 +119,7 @@ void speSelect(const Mtx *m, Popu *p, int used_proc, MPI_Comm cmm)
 					POP_SIZE, MPI_DOUBLE, 0, cmm);
 	//master process find the mid value and broadcast to all processes
 	if (rank == 0) {
-		mid = findMidFit(fit, );
+		//mid = findMidFit(fit, );
 	}
 	MPI_Bcast(&mid, 1, MPI_DOUBLE, 0, cmm);
 
@@ -177,13 +146,13 @@ void speSelect(const Mtx *m, Popu *p, int used_proc, MPI_Comm cmm)
 		disp[i] = disp[i - 1] + cnt[i - 1] * sizeof(chromoType) * MAX_DIM;
 	}
 	MPI_Allgatherv(ap.c[0], ap.amount * sizeof(chromoType) * MAX_DIM, \
-					MPI_CHAR, p->c[0], cnt * sizeof(chromoType) * MAX_DIM, disp, MPI_CHAR, cmm);
+					MPI_CHAR, p->c[0], cnt, disp, MPI_CHAR, cmm);
 
 	//set popu amount
 	p->amount = POP_SIZE;
 }
 
-void solveConflict(const int m[], const int d[], int child[], int dim, int a, int b)
+void solveConflict(const chromoType m[], const chromoType d[], chromoType child[], int dim, int a, int b)
 {
 	int mark[MAX_DIM];
 	int i, j, t;
@@ -211,7 +180,7 @@ void solveConflict(const int m[], const int d[], int child[], int dim, int a, in
 	}
 }
 
-void genChild1(const int m[], const int d[], int c[], int dim)
+void genChild(const chromoType m[], const chromoType d[], chromoType c[], int dim)
 {
 	int a, b, t;
 	int i, j;
@@ -241,7 +210,7 @@ void genChild1(const int m[], const int d[], int c[], int dim)
 	solveConflict(m, d, c, dim, a, b);
 }
 
-void genChild1(const int m[], const int d[], int c[], int dim)
+void genChild1(const chromoType m[], const chromoType d[], chromoType c[], int dim)
 {
 	int a;
 	int i, j;
@@ -272,21 +241,21 @@ void interCrossOver(const Mtx *m, Popu *p1, Popu *p2, int ipp, MPI_Comm cmm)
 
 	total1 = 0;
 	total2 = 0;
-	for (i = 0; i < MAX_POP; i++) {
-		total1 += p1->v[i].fit;
-		total2 += p2->v[i].fit;
+	for (i = 0; i < POP_SIZE; i++) {
+		total1 += p1->fit[i];
+		total2 += p2->fit[i];
 	}
 
 	//calculate select prob
 	a1 = 0;
 	a2 = 0;
-	for (i = 0; i < MAX_POP; i++) {
-		b1 = p1->v[i].fit / total1 * (double)BIG_NUM + a1;
+	for (i = 0; i < POP_SIZE; i++) {
+		b1 = p1->fit[i] / total1 * (double)BIG_NUM + a1;
 		for (j = a1; j < b1; j++) {
 			s1[j] = i;
 		}
 		a1 = b1;
-		b2 = p2->v[i].fit / total2 * (double)BIG_NUM + a2;
+		b2 = p2->fit[i] / total2 * (double)BIG_NUM + a2;
 		for (j = a2; j < b2; j++) {
 			s2[j] = i;
 		}
@@ -308,10 +277,10 @@ void interCrossOver(const Mtx *m, Popu *p1, Popu *p2, int ipp, MPI_Comm cmm)
 		}
 	}
 	MPI_Comm_rank(cmm, &rank);
-	memcpy(p->c[0], p->c[rank * ipp], sizeof(chromoType) * MAX_DIM * ipp);
-	memcpy(p->fit, &p->fit[rank * ipp], sizeof(double) * ipp);
-	memcpy(p->c[ipp], ap.c[0], sizeof(chromoType) * MAX_DIM * ipp);
-	memcpy(&p->fit[ipp], ap.fit, sizeof(double) * ipp);
+	memcpy(p1->c[0], p1->c[rank * ipp], sizeof(chromoType) * MAX_DIM * ipp);
+	memcpy(p1->fit, &p1->fit[rank * ipp], sizeof(double) * ipp);
+	memcpy(p1->c[ipp], ap.c[0], sizeof(chromoType) * MAX_DIM * ipp);
+	memcpy(&p1->fit[ipp], ap.fit, sizeof(double) * ipp);
 }
 
 void intraCrossOver(const Mtx *m, Popu *p, int ipp, MPI_Comm cmm)
@@ -388,11 +357,11 @@ void showCurStatus(const Mtx *m, Popu *p, int gen, int pnum)
 	int cnt;
 
 	printf("pop id: %d, Generation %d:\n", pnum, gen);
-	printf("max fitness: %.10lf, min distance: %.6lf\n", p->v[0].fit, 1.0 / p->v[0].fit);
+	printf("max fitness: %.10lf, min distance: %.6lf\n", p->fit[0], 1.0 / p->fit[0]);
 
 	cnt = 1;
 	for (i = 1; i < p->amount; i++) {
-		if (indivEqual(&p->v[i], &p->v[i - 1], m->dim) != 1) {
+		if (indivEqual(p->c[i], p->c[i - 1], m->dim) != 1) {
 			cnt++;
 		}
 	}
@@ -409,21 +378,22 @@ void showCurStatus(const Mtx *m, Popu *p, int gen, int pnum)
 	printf("\n");
 }
 
-void genAlg(const Mtx *mtx, const MPI_Comm *cmm, int myid, int used_proc)
+void genAlg(const Mtx *mtx, const MPI_Comm cmm, int myid, int used_proc)
 {
 	Popu p, ap;
 	int ipp;
-	int i, j, k, status;
+	int i, j, k;
+	MPI_Status status;
 	double h;
 
 	ipp = POP_SIZE / (used_proc / POP_NUM);
 	initPopu(mtx, &p, ipp);
 	h = 0.000001;
 	for (i = 0; i < TERM_NUM; i++) {
-		speSelect(mtx, &p, used_proc, cmm)
+		speSelect(mtx, &p, used_proc, cmm);
 		if ((i + 1) % 2000 != 0) {
-			intraCrossOver(mtx, &p, ipp, cmm)
-			speMutat(mtx, &p, ipp, 0.3)
+			intraCrossOver(mtx, &p, ipp, cmm);
+			speMutat(mtx, &p, ipp, 0.3);
 		}
 		else {
 			if (myid / (used_proc / POP_NUM) != POP_NUM - 1) {
@@ -438,7 +408,7 @@ void genAlg(const Mtx *mtx, const MPI_Comm *cmm, int myid, int used_proc)
 							0, MPI_COMM_WORLD, &status);
 				MPI_Send(&p, sizeof(Popu), MPI_CHAR, myid + used_proc / POP_NUM, 0, MPI_COMM_WORLD);
 			}
-			interCrossOver(mtx, &p, &ap, ipp, cmm)
+			interCrossOver(mtx, &p, &ap, ipp, cmm);
 		}
 	}
 }
@@ -448,18 +418,20 @@ int main(int argc, char **argv)
 	Mtx mtx;
 	char buffer[MAX_FILE_LEN];
 	int myid;
-	int ipp, proc_num, used_proc, mutat_prob;
+	int npp, proc_num, used_proc;
 	MPI_Comm cmm;
-	int i, color, key;
+	int color, key;
 
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 	MPI_Comm_size(MPI_COMM_WORLD, &proc_num);
 
+	//process numbers must be less than POP_NUM
 	if (proc_num < POP_NUM) {
 		printf("error: processor number should be no less than %d.", POP_NUM);
 		exit(1);
 	}
+	//some processes do not work
 	used_proc = proc_num - proc_num % POP_NUM;
 
 	//only process 0 read source tsp file
@@ -467,26 +439,30 @@ int main(int argc, char **argv)
 		readFile("a280.tsp", buffer, MAX_FILE_LEN);
 	}
 	MPI_Bcast(buffer, MAX_FILE_LEN, MPI_CHAR, myid, MPI_COMM_WORLD);
-	//each process generate the distance matrix
+	//each process generate the same distance matrix
 	allocMtx(buffer, &mtx);
 	if (mtx.m == NULL) {
 		printf("alloc matrix error\n");
-		eixt(1);
+		exit(1);
 	}
 
 	srand(time(NULL));
 	
+	//create new communicator
+	npp = used_proc / POP_NUM;		//number of processes per population
 	if (myid < used_proc) {
-		color = myid / (used_proc / POP_NUM);
-		key = myid;
+		color = myid / npp;
+		key = myid % npp;
 	}
 	else {
 		color = MPI_UNDEFINED;
 	}
-	MPI_Comm_spilt(MPI_COMM_WORLD, color, key, &cmm);
-	genAlg(mtx, cmm, myid, used_proc)
+	MPI_Comm_split(MPI_COMM_WORLD, color, key, &cmm);
+
+	//start algorithm
+	genAlg(&mtx, cmm, myid, used_proc);
 
 	freeMtx(&mtx);
-	MPI_Finilize();
+	MPI_Finalize();
 	return 0;
 }

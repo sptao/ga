@@ -18,6 +18,9 @@ ptsp: ptsp.o parser.o
 tsp.o: tsp.c
 	$(CC) $(CFLAGS) -c $^ -o $@ $(LFLAGS)
 
+ptsp.o: ptsp.c
+	$(MPICC) $(CFLAGS) -c $^ -o $@ $(LFLAGS)
+
 parser.o: parser.c
 	$(CC) $(CFLAGS) -c $^ -o $@ $(LFLAGS)
 

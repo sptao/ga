@@ -116,7 +116,6 @@ void initPopu(const Mtx *m, Popu *p, int popSize)
 {
 	int i;
 
-#pragma omp parallel for
 	for (i = 0; i < popSize; i++) {
 		randperm(p->v[i].c, 0, m->dim - 1);
 		p->v[i].fit = getFitness(m, p->v[i].c);
@@ -132,7 +131,6 @@ void speSelect(const Mtx *m, Popu *p, int maxPopSize)
 	double b;
 
 	//calculate children's fitness
-//#pragma omp parallel for
 	for (i = maxPopSize; i < p->amount; i++) {
 		p->v[i].fit = getFitness(m, p->v[i].c);
 	}
