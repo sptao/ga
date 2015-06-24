@@ -7,19 +7,19 @@
 #include "tsp.h"
 #include "parser.h"
 
-typedef char chromoType;
-
 #define MAX_DIM 256
 #define POP_SIZE 256
 #define TERM_NUM 1200000
 #define BIG_NUM 10000
-#define POP_NUM 4
+#define POP_NUM 2
 #define MAX_PROC_NUM 256
-#define MAX_FILE_LEN 4096
+#define MAX_FILE_LEN 8192
+#define INTER_CROSSOVER_NUM 2000
 
+typedef int chromoType;
 typedef struct {
-	chromoType c[POP_SIZE][MAX_DIM];
-	double fit[POP_SIZE];
+	chromoType c[POP_SIZE * 2][MAX_DIM];
+	double fit[POP_SIZE * 2];
 	int amount;
 } Popu;
 
@@ -93,13 +93,51 @@ void initPopu(const Mtx *m, Popu *p, int ipp)
 	p->amount = ipp;
 }
 
+void sortFit(double *f, int low, int high)
+{
+	int i, j;
+	double tmp;
+
+	if (low < high) {
+		i = low;
+		j = high;
+		tmp = f[i];
+		while (i < j) {
+			while (i < j && f[j] < tmp) {
+				j--;
+			}
+			if (i < j) {
+				f[i] = f[j];
+				i++;
+			} 
+			while (i < j && f[i] > tmp) {
+				i++;
+			}
+			if (i < j) {
+				f[j] = f[i];
+				j--;
+			}
+		}
+		f[i] = tmp;
+		sortFit(f, low, i - 1);
+		sortFit(f, i + 1, high);
+	}
+}
+
+double findKthFit(double *fit, int fitCnt, int k)
+{
+	sortFit(fit, 0, fitCnt - 1);
+	
+	return fit[k - 1];
+}
+
 void speSelect(const Mtx *m, Popu *p, int used_proc, MPI_Comm cmm)
 {
 	Popu ap;
-	int i, j, npp, ipp, rank;
+	int i, j, npp, ipp, rank, fitCnt, eq;
 	int cnt[POP_SIZE];
 	int disp[POP_SIZE];
-	double fit[POP_SIZE], mid;
+	double fit[POP_SIZE * 2], kth;
 	double b;
 
 	//number of processes per population
@@ -115,41 +153,66 @@ void speSelect(const Mtx *m, Popu *p, int used_proc, MPI_Comm cmm)
 	}
 	
 	//send fit to master
+	//printf("start select\n");
+	MPI_Reduce(&p->amount, &fitCnt, 1, MPI_INT, MPI_SUM, 0, cmm);
+	//printf("rank = %d, p->amount = %d\n", rank, p->amount);
 	MPI_Gather(p->fit, p->amount, MPI_DOUBLE, fit, \
-					POP_SIZE, MPI_DOUBLE, 0, cmm);
-	//master process find the mid value and broadcast to all processes
+					p->amount, MPI_DOUBLE, 0, cmm);
+	//printf("finish gather fit\n");
+	//master process find the kth fit value and broadcast to all processes
 	if (rank == 0) {
-		//mid = findMidFit(fit, );
+		//printf("start find, fitCnt = %d\n", fitCnt);
+		kth = findKthFit(fit, fitCnt, POP_SIZE);
+		//printf("finish find\n");
 	}
-	MPI_Bcast(&mid, 1, MPI_DOUBLE, 0, cmm);
+	//printf("start bcast: %d\n", rank);
+	MPI_Bcast(&kth, 1, MPI_DOUBLE, 0, cmm);
+	//printf("finish bcast\n");
 
+	//store selected indiv in another Popu
 	ap.amount = 0;
+	eq = 0;
 	for (i = 0; i < p->amount; i++) {
-		if (p->fit[i] >= mid) {
+		if (p->fit[i] > kth) {
 			memcpy(ap.c[ap.amount], p->c[i], sizeof(chromoType) * MAX_DIM);
 			ap.fit[ap.amount] = p->fit[i];
 			ap.amount++;
 		}
+		else if (p->fit[i] == kth && eq == 0) {
+			memcpy(ap.c[ap.amount], p->c[i], sizeof(chromoType) * MAX_DIM);
+			ap.fit[ap.amount] = p->fit[i];
+			ap.amount++;
+			eq = 1;
+		}
 	}
 
-	//gather alive count 
-	MPI_Allgather(&ap.amount, 1, MPI_INT, cnt, npp, MPI_INT, cmm);
-	//gather alive fit 
+	//gather remainder count 
+	//printf("start allgather amount\n");
+	MPI_Allgather(&ap.amount, 1, MPI_INT, cnt, 1, MPI_INT, cmm);
+	//set popu amount
+	p->amount = 0; 
+	for (i = 0; i < npp; i++) {
+		p->amount += cnt[i];
+	}
+	//gather remainder fit 
 	disp[0] = 0;
 	for (i = 1; i < npp; i++) {
 		disp[i] = disp[i - 1] + cnt[i - 1];
 	}
+	//printf("start gatherv fit\n");
 	MPI_Allgatherv(ap.fit, ap.amount, MPI_DOUBLE, p->fit, cnt, disp, MPI_DOUBLE, cmm);
-	//gather alive chromosome
+	//printf("gather fit over\n");
+	//gather remainder chromosome
 	disp[0] = 0;
+	cnt[0] = cnt[0] * sizeof(chromoType) * MAX_DIM;
 	for (i = 1; i < npp; i++) {
-		disp[i] = disp[i - 1] + cnt[i - 1] * sizeof(chromoType) * MAX_DIM;
+		cnt[i] = cnt[i] * sizeof(chromoType) * MAX_DIM;
+		disp[i] = disp[i - 1] + cnt[i - 1];
 	}
-	MPI_Allgatherv(ap.c[0], ap.amount * sizeof(chromoType) * MAX_DIM, \
-					MPI_CHAR, p->c[0], cnt, disp, MPI_CHAR, cmm);
-
-	//set popu amount
-	p->amount = POP_SIZE;
+	//printf("start gatherv c\n");
+	MPI_Allgatherv(&ap.c[0][0], ap.amount * sizeof(chromoType) * MAX_DIM, \
+					MPI_CHAR, &p->c[0][0], cnt, disp, MPI_CHAR, cmm);		
+	//printf("gatherv over\n");
 }
 
 void solveConflict(const chromoType m[], const chromoType d[], chromoType child[], int dim, int a, int b)
@@ -290,7 +353,7 @@ void intraCrossOver(const Mtx *m, Popu *p, int ipp, MPI_Comm cmm)
 	Popu ap;
 	int rank;
 	double total;
-	int a, b;
+	int a;
 	int m1, m2;
 
 	total = 0;
@@ -300,32 +363,46 @@ void intraCrossOver(const Mtx *m, Popu *p, int ipp, MPI_Comm cmm)
 
 	//calculate select prob
 	a = 0;
+	j = 0;
 	for (i = 0; i < p->amount; i++) {
-		b = p->fit[i] / total * (double)BIG_NUM + a;
-		for (j = a; j < b; j++) {
+		a += p->fit[i] / total * (double)BIG_NUM;
+		while (j < a) {
 			s[j] = i;
+			j++;
 		}
-		a = b;
 	}
 
 	//each processor produce same amount of children
+	int cnt = 0;
 	for (ap.amount = 0; ap.amount < ipp;) {
-		m1 = s[rand() % BIG_NUM];
-		m2 = s[rand() % BIG_NUM];
+		m1 = s[rand() % a];
+		m2 = s[rand() % a];
 		if (m1 == m2) {
 			continue;
 		}
-		genChild1(p->c[m1], p->c[m2], ap.c[ap.amount], m->dim);
+		genChild(p->c[m1], p->c[m2], ap.c[ap.amount], m->dim);
 		if (indivEqual(p->c[m1], ap.c[ap.amount], m->dim) == 0 && \
 						indivEqual(p->c[m2], ap.c[ap.amount], m->dim) == 0) {
 			ap.amount++;
 		}
+		cnt++;
+		if (cnt > 1000) {
+			break;
+		}
 	}
+	while (ap.amount < ipp) {
+		randperm(ap.c[ap.amount], 0, m->dim - 1);
+		ap.amount++;
+	}
+
 	MPI_Comm_rank(cmm, &rank);
-	memcpy(p->c[0], p->c[rank * ipp], sizeof(chromoType) * MAX_DIM * ipp);
-	memcpy(p->fit, &p->fit[rank * ipp], sizeof(double) * ipp);
+	if (rank != 0) {
+		memcpy(p->c[0], p->c[rank * ipp], sizeof(chromoType) * MAX_DIM * ipp);
+		memcpy(p->fit, &p->fit[rank * ipp], sizeof(double) * ipp);
+	}
 	memcpy(p->c[ipp], ap.c[0], sizeof(chromoType) * MAX_DIM * ipp);
 	memcpy(&p->fit[ipp], ap.fit, sizeof(double) * ipp);
+	p->amount = 2 * ipp;
 }
 
 void speMutat(const Mtx *m, Popu *p, int ipp, double mutatProb)
@@ -333,16 +410,16 @@ void speMutat(const Mtx *m, Popu *p, int ipp, double mutatProb)
 	int i, j;
 	int r1, r2, t;
 
-	for (i = p->amount - ipp; i < p->amount; i++) {
+	for (i = ipp; i < p->amount; i++) {
 		if ((rand() % BIG_NUM) / (double)BIG_NUM < mutatProb) {
-			j = rand() % 4;
+			j = rand() % 2 + 1;
 			while (j >= 0) {
 				r1 = rand() % m->dim;
 				r2 = rand() % m->dim;
 				if (r1 != r2) {
-					t = p->c[r1][i];
-					p->c[r1][i] = p->c[r2][i];
-					p->c[r2][i] = t;
+					t = p->c[i][r1];
+					p->c[i][r1] = p->c[i][r2];
+					p->c[i][r2] = t;
 				}
 
 				j--;
@@ -351,65 +428,77 @@ void speMutat(const Mtx *m, Popu *p, int ipp, double mutatProb)
 	}
 }
 
-void showCurStatus(const Mtx *m, Popu *p, int gen, int pnum)
+void showCurStatus(const Mtx *m, Popu *p, int gen, int npp, int myid)
 {
-	int i;
+	int i, n;
 	int cnt;
 
-	printf("pop id: %d, Generation %d:\n", pnum, gen);
-	printf("max fitness: %.10lf, min distance: %.6lf\n", p->fit[0], 1.0 / p->fit[0]);
+	if (myid % npp == 0) {
+		printf("pop id: %d, Generation %d:\n", myid / npp, gen);
+		n = 0;
+		if (p->amount != 256) {
+			printf("amount error: %d\n", p->amount);
+		}
+		for (i = 1; i < p->amount; i++) {
+			if (p->fit[i] > p->fit[n]) {
+				n = i;
+			}
+		}
+		printf("max fitness: %.10lf, min distance: %.6lf\n", p->fit[n], 1.0 / p->fit[n]);
+	}
 
-	cnt = 1;
-	for (i = 1; i < p->amount; i++) {
-		if (indivEqual(p->c[i], p->c[i - 1], m->dim) != 1) {
-			cnt++;
-		}
+	if (myid == 0) {
+		printf("\n");
 	}
-	printf("different indiv count: %d\n", cnt);
-	/*
-	printf("tour:\n");
-	for (i = 0; i < m->dim; i++) {
-		printf("%4d", p->v[0].c[i]);
-		if ((i + 1) % 20 == 0) {
-			printf("\n");
-		}
-	}
-	*/
-	printf("\n");
 }
 
-void genAlg(const Mtx *mtx, const MPI_Comm cmm, int myid, int used_proc)
+void genAlg(const Mtx *mtx, MPI_Comm cmm, int used_proc)
 {
 	Popu p, ap;
-	int ipp;
+	int myid, ipp, npp;
 	int i, j, k;
 	MPI_Status status;
 	double h;
 
-	ipp = POP_SIZE / (used_proc / POP_NUM);
+	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+	npp = used_proc / POP_NUM;
+	ipp = POP_SIZE / npp;
+	printf("start init. ipp = %d\n", ipp);
 	initPopu(mtx, &p, ipp);
+	printf("init over\n");
 	h = 0.000001;
 	for (i = 0; i < TERM_NUM; i++) {
+		//species select according to fitness
 		speSelect(mtx, &p, used_proc, cmm);
-		if ((i + 1) % 2000 != 0) {
+		if ((i + 1) % INTER_CROSSOVER_NUM != 0) {
+			//crossover in one population
 			intraCrossOver(mtx, &p, ipp, cmm);
-			speMutat(mtx, &p, ipp, 0.3);
+			//printf("crossover: %d\n", i);
 		}
 		else {
-			if (myid / (used_proc / POP_NUM) != POP_NUM - 1) {
-				MPI_Send(&p, sizeof(Popu), MPI_CHAR, myid + used_proc / POP_NUM, 0, MPI_COMM_WORLD);
-				MPI_Recv(&ap, sizeof(Popu), MPI_CHAR, \
-							(myid + used_proc - used_proc / POP_NUM) % used_proc, \
-							0, MPI_COMM_WORLD, &status);
+			//show current status
+			showCurStatus(mtx, &p, i, npp, myid);
+			//exchange info between Popus
+			if (POP_NUM > 1) {
+				if (myid / npp != POP_NUM - 1) {
+					MPI_Send(&p, sizeof(Popu), MPI_CHAR, (myid + npp) % used_proc, 0, MPI_COMM_WORLD);
+					MPI_Recv(&ap, sizeof(Popu), MPI_CHAR, \
+								(myid + used_proc - npp) % used_proc, \
+								0, MPI_COMM_WORLD, &status);
+				}
+				else {
+					MPI_Recv(&ap, sizeof(Popu), MPI_CHAR, \
+								(myid + used_proc - npp) % used_proc, \
+								0, MPI_COMM_WORLD, &status);
+					MPI_Send(&p, sizeof(Popu), MPI_CHAR, (myid + npp) % used_proc, 0, MPI_COMM_WORLD);
+				}
+				//crossover in two popultaion
+				interCrossOver(mtx, &p, &ap, ipp, cmm);
 			}
-			else {
-				MPI_Recv(&ap, sizeof(Popu), MPI_CHAR, \
-							(myid + used_proc - used_proc / POP_NUM) % used_proc, \
-							0, MPI_COMM_WORLD, &status);
-				MPI_Send(&p, sizeof(Popu), MPI_CHAR, myid + used_proc / POP_NUM, 0, MPI_COMM_WORLD);
-			}
-			interCrossOver(mtx, &p, &ap, ipp, cmm);
 		}
+
+		//mutation
+		speMutat(mtx, &p, ipp, 0.7);
 	}
 }
 
@@ -428,17 +517,20 @@ int main(int argc, char **argv)
 
 	//process numbers must be less than POP_NUM
 	if (proc_num < POP_NUM) {
-		printf("error: processor number should be no less than %d.", POP_NUM);
-		exit(1);
+		if (myid == 0) {
+			printf("error: processor number should be no less than %d.\n", POP_NUM);
+		}
+		MPI_Finalize();
+		return 0;
 	}
 	//some processes do not work
 	used_proc = proc_num - proc_num % POP_NUM;
 
 	//only process 0 read source tsp file
 	if (myid == 0) {
-		readFile("a280.tsp", buffer, MAX_FILE_LEN);
+		readFile("eil51.tsp", buffer, MAX_FILE_LEN);
 	}
-	MPI_Bcast(buffer, MAX_FILE_LEN, MPI_CHAR, myid, MPI_COMM_WORLD);
+	MPI_Bcast(buffer, MAX_FILE_LEN, MPI_CHAR, 0, MPI_COMM_WORLD);
 	//each process generate the same distance matrix
 	allocMtx(buffer, &mtx);
 	if (mtx.m == NULL) {
@@ -446,7 +538,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	srand(time(NULL));
+	srand(time(NULL) + myid);
 	
 	//create new communicator
 	npp = used_proc / POP_NUM;		//number of processes per population
@@ -460,7 +552,8 @@ int main(int argc, char **argv)
 	MPI_Comm_split(MPI_COMM_WORLD, color, key, &cmm);
 
 	//start algorithm
-	genAlg(&mtx, cmm, myid, used_proc);
+	printf("start gen alg\nmtx.dim = %d\n", mtx.dim);
+	genAlg(&mtx, cmm, used_proc);
 
 	freeMtx(&mtx);
 	MPI_Finalize();

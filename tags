@@ -1,0 +1,101 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+BIG_NUM	ptsp.c	13;"	d	file:
+BIG_NUM	tsp.c	12;"	d	file:
+CC	Makefile	/^CC = gcc$/;"	m
+CFLAGS	Makefile	/^CFLAGS = $(OPT) -I.\/ $(DEBUG)$/;"	m
+CROSS_PROB	ga1.c	7;"	d	file:
+DEBUG	Makefile	/^DEBUG = -g$/;"	m
+DELTA	ga1.c	12;"	d	file:
+Fit	ga1.c	/^} Fit;$/;"	t	typeref:struct:__anon3	file:
+INTER_CROSSOVER_NUM	ptsp.c	17;"	d	file:
+Indiv	tsp.c	/^} Indiv;$/;"	t	typeref:struct:__anon1	file:
+LFLAGS	Makefile	/^LFLAGS = -lm$/;"	m
+MATING_PROB	ga1.c	8;"	d	file:
+MAX_DIM	ptsp.c	10;"	d	file:
+MAX_DIM	tsp.c	9;"	d	file:
+MAX_FILE_LEN	ptsp.c	16;"	d	file:
+MAX_FILE_LEN	tsp.c	14;"	d	file:
+MAX_POP	tsp.c	10;"	d	file:
+MAX_PROC_NUM	ptsp.c	15;"	d	file:
+MPICC	Makefile	/^MPICC = mpicc$/;"	m
+MUTAT_PROB	ga1.c	9;"	d	file:
+Mtx	tsp.h	/^} Mtx;$/;"	t	typeref:struct:__anon4
+NUM	ga1.c	13;"	d	file:
+OPT	Makefile	/^OPT = $/;"	m
+PI	ga1.c	11;"	d	file:
+POP_NUM	ptsp.c	14;"	d	file:
+POP_NUM	tsp.c	13;"	d	file:
+POP_SIZE	ga1.c	6;"	d	file:
+POP_SIZE	ptsp.c	11;"	d	file:
+Popu	ptsp.c	/^} Popu;$/;"	t	typeref:struct:__anon5	file:
+Popu	tsp.c	/^} Popu;$/;"	t	typeref:struct:__anon2	file:
+TERM_GEN	ga1.c	10;"	d	file:
+TERM_NUM	ptsp.c	12;"	d	file:
+TERM_NUM	tsp.c	11;"	d	file:
+__PARSER_H__	parser.h	2;"	d
+__TSP_H__	tsp.h	2;"	d
+allocMtx	parser.c	/^void allocMtx(const char *buf, Mtx *mtx)$/;"	f
+amount	ga1.c	/^int amount;$/;"	v
+amount	ptsp.c	/^	int amount;$/;"	m	struct:__anon5	file:
+amount	tsp.c	/^	int amount;$/;"	m	struct:__anon2	file:
+c	ptsp.c	/^	chromoType c[POP_SIZE * 2][MAX_DIM];$/;"	m	struct:__anon5	file:
+c	tsp.c	/^	int c[MAX_DIM];$/;"	m	struct:__anon1	file:
+calcFitness	ga1.c	/^void calcFitness(int n)$/;"	f
+chromo	ga1.c	/^double chromo[POP_SIZE * 4];$/;"	v
+chromoType	ptsp.c	/^typedef int chromoType;$/;"	t	file:
+crossOver	ga1.c	/^void crossOver()$/;"	f
+dim	tsp.h	/^	int dim;$/;"	m	struct:__anon4
+exterCrossOver	tsp.c	/^void exterCrossOver(const Mtx *m, Popu *p1, Popu *p2, double crossProb, double matingProb)$/;"	f
+findKthFit	ptsp.c	/^double findKthFit(double *fit, int fitCnt, int k)$/;"	f
+fit	ga1.c	/^Fit fit[POP_SIZE * 4];$/;"	v
+fit	ptsp.c	/^	double fit[POP_SIZE * 2];$/;"	m	struct:__anon5	file:
+fit	tsp.c	/^	double fit;$/;"	m	struct:__anon1	file:
+fitSort	tsp.c	/^void fitSort(Indiv v[], int low, int high)	$/;"	f
+freeMtx	parser.c	/^void freeMtx(Mtx *mtx)$/;"	f
+genAlg	ptsp.c	/^void genAlg(const Mtx *mtx, MPI_Comm cmm, int used_proc)$/;"	f
+genAlg	tsp.c	/^void genAlg(const Mtx *mtx)$/;"	f
+genChild	ptsp.c	/^void genChild(const chromoType m[], const chromoType d[], chromoType c[], int dim)$/;"	f
+genChild	tsp.c	/^void genChild(const Indiv *m, const Indiv *d, Indiv *c, int dim)$/;"	f
+genChild1	ptsp.c	/^void genChild1(const chromoType m[], const chromoType d[], chromoType c[], int dim)$/;"	f
+genChild1	tsp.c	/^void genChild1(const Indiv *m, const Indiv *d, Indiv *c, int dim)$/;"	f
+getFitness	ptsp.c	/^double getFitness(const Mtx *m, chromoType c[])$/;"	f
+getFitness	tsp.c	/^double getFitness(const Mtx *m, int c[])$/;"	f
+idx	ga1.c	/^	int idx;$/;"	m	struct:__anon3	file:
+indivEqual	ptsp.c	/^int indivEqual(const chromoType c1[], const chromoType c2[], int dim)$/;"	f
+indivEqual	tsp.c	/^int indivEqual(const Indiv *i1, const Indiv *i2, int dim)$/;"	f
+initPop	ga1.c	/^void initPop()$/;"	f
+initPopu	ptsp.c	/^void initPopu(const Mtx *m, Popu *p, int ipp)$/;"	f
+initPopu	tsp.c	/^void initPopu(const Mtx *m, Popu *p, int popSize)$/;"	f
+interCrossOver	ptsp.c	/^void interCrossOver(const Mtx *m, Popu *p1, Popu *p2, int ipp, MPI_Comm cmm)$/;"	f
+interCrossOver	tsp.c	/^void interCrossOver(const Mtx *m, Popu *p, double crossProb, double matingProb)$/;"	f
+intraCrossOver	ptsp.c	/^void intraCrossOver(const Mtx *m, Popu *p, int ipp, MPI_Comm cmm)$/;"	f
+m	tsp.h	/^	double **m;$/;"	m	struct:__anon4
+main	ga1.c	/^int main()$/;"	f
+main	ptsp.c	/^int main(int argc, char **argv)$/;"	f
+main	tsp.c	/^int main()$/;"	f
+mutation	ga1.c	/^void mutation(int n)$/;"	f
+qsortFit	ga1.c	/^void qsortFit(int low, int high)$/;"	f
+randperm	ptsp.c	/^void randperm(chromoType c[], int a, int b)$/;"	f
+randperm	tsp.c	/^void randperm(int c[], int a, int b)$/;"	f
+readFile	parser.c	/^void readFile(const char *filename, char *buf, int bufLen)$/;"	f
+showCurStatus	ptsp.c	/^void showCurStatus(const Mtx *m, Popu *p, int gen, int npp, int myid)$/;"	f
+showCurStatus	tsp.c	/^void showCurStatus(const Mtx *m, Popu *p, int gen, int pnum)$/;"	f
+solveConflict	ptsp.c	/^void solveConflict(const chromoType m[], const chromoType d[], chromoType child[], int dim, int a, int b)$/;"	f
+solveConflict	tsp.c	/^void solveConflict(const Indiv *m, const Indiv *d, Indiv *child, int dim, int a, int b)$/;"	f
+sortFit	ptsp.c	/^void sortFit(double *f, int low, int high)$/;"	f
+speMutat	ptsp.c	/^void speMutat(const Mtx *m, Popu *p, int ipp, double mutatProb)$/;"	f
+speMutat	tsp.c	/^void speMutat(const Mtx *m, Popu *p, int maxPopSize, double mutatProb)$/;"	f
+speMutat1	tsp.c	/^void speMutat1(const Mtx *m, Popu *p, int maxPopSize, double mutatProb)$/;"	f
+speSelect	ptsp.c	/^void speSelect(const Mtx *m, Popu *p, int used_proc, MPI_Comm cmm)$/;"	f
+speSelect	tsp.c	/^void speSelect(const Mtx *m, Popu *p, int maxPopSize)$/;"	f
+strDim	parser.c	/^const char *strDim = "DIMENSION";$/;"	v
+strE2d	parser.c	/^const char *strE2d = "EUC_2D";$/;"	v
+strSec	parser.c	/^const char *strSec = "NODE_COORD_SECTION";$/;"	v
+strType	parser.c	/^const char *strType = "TYPE";$/;"	v
+v	tsp.c	/^	Indiv v[4 * MAX_POP];$/;"	m	struct:__anon2	file:
+val	ga1.c	/^	double val;$/;"	m	struct:__anon3	file:

@@ -442,7 +442,7 @@ int main()
 	Indiv opt;
 	char buffer[MAX_FILE_LEN];
 
-	readFile("a280.tsp", buffer, MAX_FILE_LEN);
+	readFile("eil51.tsp", buffer, MAX_FILE_LEN);
 	allocMtx(buffer, &mtx);
 	if (mtx.m == NULL) {
 		printf("alloc matrix error\n");
