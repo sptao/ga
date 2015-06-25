@@ -2,15 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <omp.h>
 #include "tsp.h"
 #include "parser.h"
 
 #define MAX_DIM 300
 #define MAX_POP 256
-#define TERM_NUM 1200000
+#define TERM_NUM 12000
 #define BIG_NUM 10000
-#define POP_NUM 3
+#define POP_NUM 4
 #define MAX_FILE_LEN 4096
 
 typedef struct {
@@ -275,7 +274,7 @@ void exterCrossOver(const Mtx *m, Popu *p1, Popu *p2, double crossProb, double m
 		m2 = s2[rand() % BIG_NUM];
 		//gen children
 		if ((rand() % BIG_NUM / (double)BIG_NUM) < matingProb) {
-			genChild1(&p1->v[m1], &p2->v[m2], &p1->v[j], m->dim);
+			genChild(&p1->v[m1], &p2->v[m2], &p1->v[j], m->dim);
 			if (indivEqual(&p1->v[m1], &p1->v[j], m->dim) == 0) {
 				j++;
 			}
@@ -322,12 +321,12 @@ void interCrossOver(const Mtx *m, Popu *p, double crossProb, double matingProb)
 		}
 		//gen children
 		if ((rand() % BIG_NUM / (double)BIG_NUM) < matingProb) {
-			genChild1(&p->v[p1], &p->v[p2], &p->v[j], m->dim);
+			genChild(&p->v[p1], &p->v[p2], &p->v[j], m->dim);
 			if (indivEqual(&p->v[p1], &p->v[j], m->dim) == 0 && \
 							indivEqual(&p->v[p2], &p->v[j], m->dim) == 0) {
 				j++;
 			}
-			genChild1(&p->v[p2], &p->v[p1], &p->v[j], m->dim);
+			genChild(&p->v[p2], &p->v[p1], &p->v[j], m->dim);
 			if (indivEqual(&p->v[p1], &p->v[j], m->dim) == 0 && \
 							indivEqual(&p->v[p2], &p->v[j], m->dim) == 0) {
 				j++;
@@ -414,7 +413,6 @@ void genAlg(const Mtx *mtx)
 	}
 	h = 0.000001;
 	for (i = 0; i < TERM_NUM; i++) {
-#pragma omp parallel for
 		for (j = 0; j < POP_NUM; j++) {
 			speSelect(mtx, &p[j], MAX_POP);
 			interCrossOver(mtx, &p[j], 0.9, 0.9);
@@ -442,7 +440,7 @@ int main()
 	Indiv opt;
 	char buffer[MAX_FILE_LEN];
 
-	readFile("eil51.tsp", buffer, MAX_FILE_LEN);
+	readFile("eil101.tsp", buffer, MAX_FILE_LEN);
 	allocMtx(buffer, &mtx);
 	if (mtx.m == NULL) {
 		printf("alloc matrix error\n");

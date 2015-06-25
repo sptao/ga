@@ -1,4 +1,4 @@
 #!/bin/bash
 
 make
-mpirun -n 4 ./ptsp
+mpirun -n 8 --hostfile hostfile  ./ptsp
