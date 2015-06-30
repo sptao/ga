@@ -1,0 +1,18 @@
+Tips for run.sh:
+run.sh with no parameters will run the program with default 16 processes
+It also accept parameters will a number which can be 4, 8, 16, 32, 64, ...
+The number refers to the process number to run the program.
+Others numbers will lead to unexpected errors.
+
+Examples:
+
+./run.sh
+./run.sh 4
+./run.sh 32
+
+Some known problems:
+When I run my program, I found it might stall sometimes.
+The cause is strange. I think it may be the problem of some hosts.
+They lost some messages for  unknown reasons.
+So if you find the program stalled in one run, please kill it and run it
+again.

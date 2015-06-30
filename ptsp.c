@@ -486,7 +486,7 @@ void genAlg(const Mtx *mtx, MPI_Comm cmm, int used_proc)
 	ipp = POP_SIZE / npp;
 	//printf("start init. ipp = %d\n", ipp);
 	initPopu(mtx, &p, ipp);
-	printf("init over\n");
+	//printf("init over\n");
 	for (i = 0; i < TERM_NUM; i++) {
 		//species select according to fitness
 		speSelect(mtx, &p, used_proc, cmm);
@@ -533,6 +533,7 @@ int main(int argc, char **argv)
 { 
 	Mtx mtx;
 	char buffer[MAX_FILE_LEN];
+	char *strInput = "eil101.tsp";
 	int myid;
 	int npp, proc_num, used_proc;
 	MPI_Comm cmm;
@@ -555,7 +556,7 @@ int main(int argc, char **argv)
 
 	//only process 0 read source tsp file
 	if (myid == 0) {
-		readFile("ch130.tsp", buffer, MAX_FILE_LEN);
+		readFile(strInput, buffer, MAX_FILE_LEN);
 	}
 	MPI_Bcast(buffer, MAX_FILE_LEN, MPI_CHAR, 0, MPI_COMM_WORLD);
 	//each process generate the same distance matrix
@@ -578,9 +579,16 @@ int main(int argc, char **argv)
 	}
 	MPI_Comm_split(MPI_COMM_WORLD, color, key, &cmm);
 
+	if (myid == 0) {
+		printf("start gen alg\n");
+		printf("input file: %s\n", strInput);
+		printf("input dim = %d\n", mtx.dim);
+		printf("sub pop number = %d\n", POP_NUM);
+		printf("sub pop size = %d\n", POP_SIZE);
+		printf("processor number = %d\n", used_proc);
+	}
 	if (myid < used_proc) {
 		//start algorithm
-		printf("start gen alg. id = %d\n", myid);
 		genAlg(&mtx, cmm, used_proc);
 	
 		freeMtx(&mtx);
