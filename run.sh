@@ -1,4 +1,7 @@
 #!/bin/bash
 
-make
-mpirun -n 8 --hostfile hostfile  ./ptsp
+pnum=$1
+if [ -z $pnum ]; then
+	pnum=16
+fi
+time mpirun -n $pnum --hostfile hostfile  ./ptsp

@@ -8,10 +8,10 @@
 #include "parser.h"
 
 #define MAX_DIM 256
-#define POP_SIZE 1524
-#define TERM_NUM 420000
+#define POP_SIZE 1024
+#define TERM_NUM 12000
 #define BIG_NUM 10000
-#define POP_NUM 2
+#define POP_NUM 4
 #define MAX_PROC_NUM 256
 #define MAX_FILE_LEN 8192
 #define INTER_CROSSOVER_NUM 2000
@@ -338,7 +338,7 @@ void interCrossOver(const Mtx *m, Popu *p1, Popu *p2, int ipp, MPI_Comm cmm)
 	while (ap.amount < ipp) {
 		m1 = s1[rand() % a1];
 		m2 = s2[rand() % a2];
-		genChild1(p1->c[m1], p2->c[m2], ap.c[ap.amount], m->dim);
+		genChild(p1->c[m1], p2->c[m2], ap.c[ap.amount], m->dim);
 		if (indivEqual(p1->c[m1], ap.c[ap.amount], m->dim) == 0 && \
 						indivEqual(p2->c[m2], ap.c[ap.amount], m->dim) == 0) {
 			ap.amount++;
@@ -480,15 +480,13 @@ void genAlg(const Mtx *mtx, MPI_Comm cmm, int used_proc)
 	int myid, ipp, npp;
 	int i, j, k;
 	MPI_Status status;
-	double h;
 
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 	npp = used_proc / POP_NUM;
 	ipp = POP_SIZE / npp;
 	//printf("start init. ipp = %d\n", ipp);
 	initPopu(mtx, &p, ipp);
-	//printf("init over\n");
-	h = 0.000001;
+	printf("init over\n");
 	for (i = 0; i < TERM_NUM; i++) {
 		//species select according to fitness
 		speSelect(mtx, &p, used_proc, cmm);
@@ -503,30 +501,31 @@ void genAlg(const Mtx *mtx, MPI_Comm cmm, int used_proc)
 			//exchange info between Popus
 			if (POP_NUM > 1) {
 				//printf("start exchange info, gen: %d\n", i);
-				if (myid / npp != POP_NUM - 1) {
-					MPI_Send(&p, sizeof(Popu), MPI_CHAR, (myid + npp) % used_proc, 0, MPI_COMM_WORLD);
+				if (myid < used_proc - npp) {
+					MPI_Send(&p, sizeof(Popu), MPI_CHAR, (myid + npp) % used_proc, i, MPI_COMM_WORLD);
 					MPI_Recv(&ap, sizeof(Popu), MPI_CHAR, \
 								(myid + used_proc - npp) % used_proc, \
-								0, MPI_COMM_WORLD, &status);
+								i, MPI_COMM_WORLD, &status);
 				}
 				else {
 					MPI_Recv(&ap, sizeof(Popu), MPI_CHAR, \
 								(myid + used_proc - npp) % used_proc, \
-								0, MPI_COMM_WORLD, &status);
-					MPI_Send(&p, sizeof(Popu), MPI_CHAR, (myid + npp) % used_proc, 0, MPI_COMM_WORLD);
+								i, MPI_COMM_WORLD, &status);
+					MPI_Send(&p, sizeof(Popu), MPI_CHAR, (myid + npp) % used_proc, i, MPI_COMM_WORLD);
 				}
-				//printf("finish exchange info, gen: %d\n", i);
+				//printf("finish exchange info, id: %d\n", myid);
 				//crossover in two popultaion
 				interCrossOver(mtx, &p, &ap, ipp, cmm);
-				//printf("finish inter crossover, gen: %d\n", i);
+				//printf("finish inter crossover, id: %d\n", myid);
 			}
 			else {
+				//printf("start 2000. id = %d\n", myid);
 				intraCrossOver(mtx, &p, ipp, cmm);
 			}
 		}
 
 		//mutation
-		speMutat(mtx, &p, ipp, 0.3);
+		speMutat(mtx, &p, ipp, 0.01);
 	}
 }
 
@@ -556,7 +555,7 @@ int main(int argc, char **argv)
 
 	//only process 0 read source tsp file
 	if (myid == 0) {
-		readFile("eil101.tsp", buffer, MAX_FILE_LEN);
+		readFile("ch130.tsp", buffer, MAX_FILE_LEN);
 	}
 	MPI_Bcast(buffer, MAX_FILE_LEN, MPI_CHAR, 0, MPI_COMM_WORLD);
 	//each process generate the same distance matrix
